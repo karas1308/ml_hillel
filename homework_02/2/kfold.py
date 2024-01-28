@@ -1,3 +1,4 @@
+import time
 from typing import List, Tuple
 
 import numpy as np
@@ -60,14 +61,15 @@ class KNN:
             y_pred[i] = np.bincount(k_nearest_labels).argmax()
 
             if verbose:
-                print(f"Predicted {i+1}/{n} samples", end="\r")
+                print(f"Predicted {i + 1}/{n} samples", end="\r")
 
         if verbose:
             print("")
         return y_pred
 
 
-def kfold_cross_validation(X: np.ndarray, y: np.ndarray, k: int) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+def kfold_cross_validation(X: np.ndarray, y: np.ndarray, k: int) -> List[
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """Split dataset into k folds for cross-validation.
 
     Args:
@@ -81,9 +83,15 @@ def kfold_cross_validation(X: np.ndarray, y: np.ndarray, k: int) -> List[Tuple[n
     n_samples = X.shape[0]
     fold_size = n_samples // k
     folds = []  # Container to store the results of each fold
+    for i in range(k):
+        start = i * fold_size
+        end = (i + 1) * fold_size if i != k - 1 else n_samples
+        X_test, y_test = X[start:end], y[start:end]
+        X_train = np.concatenate((X[:start], X[end:]), axis=0)
+        y_train = np.concatenate((y[:start], y[end:]), axis=0)
+        folds.append((X_train, y_train, X_test, y_test))
 
-    # TODO: implement kfold split. Hints: use `for` Python loop and list slicing.
-    raise NotImplementedError
+    return folds
 
 
 def evaluate_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -96,11 +104,15 @@ def evaluate_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     Returns:
         float: Accuracy score.
     """
+    correct = np.sum(y_true == y_pred)
+    return correct / len(y_true)
     # TODO: implement accuracy score
-    raise NotImplementedError
+    # raise NotImplementedError
 
 
 def main() -> None:
+    start_time = time.time()
+
     """Main function to demonstrate the KNN classifier and k-fold cross-validation."""
     # Read training and testing data from CSV files
     # NOTE: data path, note that it must be specified relative to the \
@@ -117,21 +129,33 @@ def main() -> None:
     X_test = testing_data.iloc[:, 1:].values
     y_test = testing_data.iloc[:, 0].values
     print("Test data:", X_test.shape, y_test.shape)
+    # n = [3, 4, 5, 6, 7, 9, 10, 15, 20, 21, 40, 41]
+    n = [4]
+    for k in n:
+        # k = 1  # NOTE: not the best choice for k
+        print(f" KNN with k = {k}")
 
-    k = 1  # NOTE: not the best choice for k
-    print(f" KNN with k = {k}")
+        num_folds = 40
+        print(f" num_folds = {num_folds}")
+        accuracies = []
+        # Perform k-fold cross-validation
+        for X_train, y_train, X_val, y_val in kfold_cross_validation(X_test, y_test, k=num_folds):
+            model = KNN(k=k)
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_val, verbose=True)
+            accuracy = evaluate_accuracy(y_val, y_pred)
+            print(f"Accuracy: {round(accuracy, 2)}")
+            accuracy = evaluate_accuracy(y_val, y_pred)
+            accuracies.append(accuracy)
+            print(f"Fold accuracy: {round(accuracy, 2)}")
+            # Calculate average accuracy over all folds
+            avg_accuracy = sum(accuracies) / len(accuracies)
+            print(f"Average Cross-Validation Accuracy: {round(avg_accuracy, 2)}")
+        print(f"Sum of accuracies {sum(accuracies)}")
+        print(f"======================================")
+    end_time = time.time()
 
-    num_folds = 5
-    # Perform k-fold cross-validation
-    for X_train, y_train, X_val, y_val in kfold_cross_validation(X, y, k=num_folds):
-        model = KNN(k=k)
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_val, verbose=True)
-        accuracy = evaluate_accuracy(y_val, y_pred)
-        print(f"Accuracy: {round(accuracy, 2)}")
-
-    # TODO: compute accuracy on test data and compare results with cross-validation scores
-
+    print(end_time - start_time)
 
 if __name__ == "__main__":
     main()
